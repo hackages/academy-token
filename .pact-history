@@ -1,3 +1,4 @@
+(load "token.pact")
 (load "keoy.repl")
 (load "keoy.repl")
 (load "keoy.repl")
@@ -94,7 +95,6 @@ l
 (add-todo "23" "Learn Pact with Davy Engone')
 (add-todo "23" "Learn Pact with Davy Engone")
 (add-todo 23 "Learn Pact with Davy Engone")
-(load "todo.pact")
 (load "todo.pact")
 (load "todo.pact")
 (load "todo.pact")

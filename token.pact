@@ -42,8 +42,6 @@
   ; -----------------
   ; Constants
   ; -----------------
-  (defconst BURN_START_DATE (time "2023-01-01T00:00:00Z")
-    "The date when the coins start getting burned")
   (defconst MAX_TOKENS 100000.0
     "The amount of coins to start with")
   (defconst ACCOUNT_MIN_LENGTH 4
@@ -80,27 +78,6 @@
 
     (enforce-unit amount)
     (enforce (> amount 0.0) "Amount must be positive"))
-
-  ; -----------------
-  ; Utility functions
-  ; -----------------
-  ;  (defun get-burned-tokens:integer()
-  ;    (floor (/
-  ;      (diff-time (at "block-time" (chain-data)) BURN_START_DATE)
-  ;      (* (* 60 60) 24))))
-
-  ;  (defun get-remaining-tokens:decimal()
-  ;    @doc "Get the remaining tokens that can be minted \
-  ;          \Update the new balance with the burned tokens deducted"
-  ;    (with-capability (GOVERNANCE)
-  ;      (with-read academy-token-table "keoy" {
-  ;        "balance":= balance
-  ;      }
-  ;        (let ((new-balance:decimal (- balance (get-burned-tokens))))
-  ;          ; update the balance with the burned tokens deducted
-  ;          new-balance
-  ;        )
-  ;      )))
 
   (defun check-balance()
     (with-capability (GOVERNANCE)
