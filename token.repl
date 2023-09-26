@@ -1,0 +1,431 @@
+; Setup KeySets to define a namespace
+(env-data {
+  "namespace-keyset": {
+    "keys": [],
+    "pred": "keys-all"
+  },
+  "test-keyset": {
+    "keys": [],
+    "pred": "keys-all"
+  }
+})
+
+; Setup namespace
+(begin-tx)
+(define-namespace "free" (read-keyset "test-keyset") (read-keyset "namespace-keyset"))
+(commit-tx)
+
+(env-data {
+ "academy-token-keyset": {
+   "keys": [
+     "academy-token-public-key"
+   ],
+   "pred": "keys-all"
+ }
+})
+
+(env-sigs [{
+  "key": "academy-token-public-key",
+  "caps": []
+}])
+
+; Load the pact contracts from root in oder to be able to make transactions
+(begin-tx)
+(load "./fungible-v2.pact")
+(load "./fungible-xchain-v1.pact")
+(load "token.pact")
+(commit-tx)
+(env-sigs [])
+(env-data {})
+
+; Disabled due to lambda's not being verified: https://github.com/kadena-io/pact/issues/1065
+; (verify "free.academy-token")
+; (typecheck "free.academy-token")
+
+; Init module
+(env-sigs [{
+  "key": "academy-token-public-key",
+  "caps": []
+}])
+
+(begin-tx)
+(free.academy-token.init (describe-keyset "free.academy-token-keyset"))
+(commit-tx)
+(env-data {})
+(env-sigs [])
+
+
+; Grand a new user some tokens
+(env-data { "new-user-keyset": { "keys": [ "user-public-key" ], "pred": "keys-all" } })
+(begin-tx)
+(namespace "free")
+(define-keyset "free.new-user-keyset" (read-keyset "new-user-keyset"))
+(commit-tx)
+(env-data {})
+(env-sigs [{
+  "key": "academy-token-public-key",
+  "caps": []
+}])
+(begin-tx)
+(expect
+  "Expect the new user to have 42.0 tokens"
+  42.0
+  (at "balance" (free.academy-token.grant-tokens "new-user" (describe-keyset "free.new-user-keyset") 42.0)))
+(commit-tx)
+
+; Test granting another user some tokens
+(env-data { "other-user-keyset": { "keys": [ "other-user-public-key" ], "pred": "keys-all" } })
+(begin-tx)
+(namespace "free")
+(define-keyset "free.other-user-keyset" (read-keyset "other-user-keyset"))
+(commit-tx)
+(env-data {})
+(env-sigs [{
+  "key": "academy-token-public-key",
+  "caps": []
+}])
+(begin-tx)
+(expect
+  "Expect the other user to have 42.0 tokens"
+  42.0
+  (at "balance" (free.academy-token.grant-tokens "other-user" (describe-keyset "free.other-user-keyset") 42.0)))
+(commit-tx)
+(env-data {})
+(env-sigs [])
+
+
+;  ; Only admin can grant tokens
+;  (env-sigs [{
+;    "key": "user-public-key",
+;    "caps": []
+;  }])
+;  (begin-tx)
+;  (expect-failure
+;    "Expect that only the admin can transfer tokens"
+;    "enforce-keyset"
+;    (free.academy-token.grant-tokens "other-user" (describe-keyset "free.other-user-keyset") 100.0))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+
+;  ; Test that the v2 fungible interface is implemented
+;  (env-sigs [])
+;  (begin-tx)
+;  (expect
+;    "Expect the user to be able to retrieve their balance"
+;    100.0
+;    (free.academy-token.get-balance "new-user"))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+
+;  (env-sigs [])
+;  (begin-tx)
+;  (expect
+;    "Expect the user details to be retrievable"
+;    { "account": "new-user", "balance": 100.0, "guard": (describe-keyset "free.new-user-keyset") }
+;    (free.academy-token.details "new-user"))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+
+;  (env-sigs [])
+;  (begin-tx)
+
+;  ; Test that invalid accounts can't be created
+;  (env-sigs [])
+;  (begin-tx)
+;    (expect-failure "Expect an account that violates the single key protocol to be blocked"
+;      "Should either contain no protocol or adhere to the single key account protocol"
+;      (free.academy-token.create-account "k:new-user-created" (describe-keyset "free.new-user-keyset")) )
+;  (commit-tx)
+
+;  ; Test that a valid account can be created
+;  (env-sigs [])
+;  (begin-tx)
+;    (free.academy-token.create-account "new-user-created" (describe-keyset "free.new-user-keyset"))
+;    (expect "Expect that a account can be created"
+;      { "account": "new-user-created", "balance": 0.0, "guard": (describe-keyset "free.new-user-keyset") }
+;      (free.academy-token.details "new-user-created"))
+;  (commit-tx)
+
+;  ; Test that a account guard can be rotated
+;  (env-sigs [{
+;    "key": "other-user-public-key",
+;    "caps": []
+;  } {
+;    "key": "user-public-key",
+;    "caps": []
+;  }])
+;  (begin-tx)
+;  (free.academy-token.rotate "new-user-created" (describe-keyset "free.other-user-keyset"))
+;  (expect "Expect that a account guard can be rotated"
+;    { "account": "new-user-created", "balance": 0.0, "guard": (describe-keyset "free.other-user-keyset") }
+;    (free.academy-token.details "new-user-created"))
+;  (commit-tx)
+
+;  ; Test a transfer
+;  (env-sigs [{
+;    "key": "user-public-key",
+;    "caps": [(free.academy-token.TRANSFER "new-user" "other-user" 25.0)]
+;  }])
+;  (begin-tx)
+;  (free.academy-token.transfer "new-user" "other-user" 25.0)
+;  (expect "Expect the new user to have 75 tokens left"
+;    75.0
+;    (free.academy-token.get-balance "new-user"))
+;  (expect "Expect that the other user to have 125 tokens"
+;    125.0
+;    (free.academy-token.get-balance "other-user"))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+
+;  ; Test a transfer to non existing account
+;  (env-sigs [{
+;    "key": "user-public-key",
+;    "caps": [(free.academy-token.TRANSFER "new-user" "non-existing-user" 25.0)]
+;  }])
+;  (begin-tx)
+;  (expect-failure
+;    "with-read: row not found"
+;    (free.academy-token.transfer "new-user" "non-existing-user" 25.0))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+
+;  ; Test a cross chain transfer
+;  (env-keys ["user-public-key"])
+;  (begin-tx)
+;  (free.academy-token.transfer-crosschain "new-user" "other-user" (describe-keyset "free.other-user-keyset") "TestNet00/3" 25.0)
+;  (expect "Expect the new user to have 50 tokens left"
+;    50.0
+;    (free.academy-token.get-balance "new-user"))
+;  (env-chain-data
+;    { "chain-id": "TestNet00/3"
+;    , "block-height": 21
+;    , "block-time": (time "2024-01-01T00:00:00Z")
+;    })
+;  (continue-pact 1)
+;  (expect "Expect that the other user to have 150 tokens"
+;    150.0
+;    (free.academy-token.get-balance "other-user"))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+
+;  ; Test a cross chain transfer to non existing user
+;  (env-chain-data
+;    { "chain-id": "TestNet00/2"
+;    , "block-height": 20
+;    , "block-time": (time "2024-01-01T00:00:00Z")
+;    })
+;  (env-keys ["user-public-key"])
+;  (begin-tx)
+;  (expect-failure
+;    "with-read: row not found"
+;    (free.academy-token.transfer-crosschain "new-user" "non-existing-user" (describe-keyset "free.non-existing-user-keyset") "TestNet00/3" 25.0))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+
+;  ; Test a safe transfer: storing funds
+;  (env-sigs [{
+;    "key": "user-public-key",
+;    "caps": [(free.academy-token.TRANSFER "new-user" "other-user" 25.0)]
+;  }])
+;  (env-hash (hash "paying transaction"))
+;  (begin-tx)
+;  (let ((other-user-balance (free.academy-token.get-balance "other-user")))
+;    (free.academy-token.safe-transfer "new-user" "other-user" 25.0 600)
+;    (expect "Expect the new user to have 50 tokens left"
+;      25.0
+;      (free.academy-token.get-balance "new-user"))
+;    (expect "Expect that the other user to have not have any additional tokens"
+;      other-user-balance
+;      (free.academy-token.get-balance "other-user")))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+
+;  ; Test a safe transfer: retrieval of funds
+;  (env-sigs [{
+;    "key": "other-user-public-key",
+;    "caps": []
+;  }])
+;  ; Set a different hash to simulate a different transaction
+;  (env-hash (hash "retrieving transaction"))
+;  (begin-tx)
+;  (free.academy-token.safe-transfer-retrieve (hash "paying transaction"))
+;  (expect "Expect that the other user to have additional tokens"
+;    175.0
+;    (free.academy-token.get-balance "other-user"))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+;  ; Test that a acquisition can only be retrieved once
+;  (env-sigs [{
+;    "key": "other-user-public-key",
+;    "caps": []
+;  }])
+;  (begin-tx)
+;  (expect-failure
+;    "Expect the safe transfer to be already retrieved"
+;    "There is nothing to retrieve"
+;    (free.academy-token.safe-transfer-retrieve (hash "paying transaction")))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+
+;  ; Test expired safe transfer
+;  ; Set a different hash to simulate a different transaction
+;  (env-chain-data
+;    { "chain-id": "TestNet00/2"
+;    , "block-height": 20
+;    , "block-time": (time "2024-01-01T00:00:00Z")
+;    })
+;  (env-sigs [{
+;    "key": "other-user-public-key",
+;    "caps": [(free.academy-token.TRANSFER "other-user" "new-user" 25.0)]
+;  }])
+;  (env-hash (hash "expired safe transfer"))
+;  (begin-tx)
+;  (free.academy-token.safe-transfer "other-user" "new-user" 10.0 600)
+;  (commit-tx)
+;  (env-hash (hash "expired safe transfer 2"))
+;  (begin-tx)
+;  (free.academy-token.safe-transfer "other-user" "new-user" 15.0 600)
+;  (expect "Expect the other user to have 150 tokens left"
+;    150.0
+;    (free.academy-token.get-balance "other-user"))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+;  ; Test that the safe transfer is funded back to the other-user
+;  (env-chain-data
+;    { "chain-id": "TestNet00/2"
+;    , "block-height": 20
+;    , "block-time": (time "2024-01-01T00:11:00Z")
+;    })
+;  (begin-tx)
+;  (expect "Expect the other user to have 175 tokens left after refunding"
+;    175.0
+;    (free.academy-token.get-balance "other-user"))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+
+;  ; Test safe cross chain transfer
+;  (env-chain-data
+;    { "chain-id": "TestNet00/2"
+;    , "block-height": 20
+;    , "block-time": (time "2024-01-01T00:00:00Z")
+;    })
+;  (env-sigs [{
+;    "key": "other-user-public-key",
+;    "caps": [
+;      (free.academy-token.TRANSFER "other-user" "new-user" 25.0)
+;      (free.academy-token.DEBIT "other-user")
+;    ]
+;  }])
+;  (env-hash (hash "cross chain safe transfer"))
+;  (begin-tx)
+;  (free.academy-token.safe-transfer-crosschain "other-user" "new-user" "TestNet00/3" 25.0 600)
+;  (expect "Expect the other user to have 150 tokens left"
+;    150.0
+;    (free.academy-token.get-balance "other-user"))
+;  (env-chain-data
+;    { "chain-id": "TestNet00/3"
+;    , "block-height": 21
+;    , "block-time": (time "2024-01-01T00:01:00Z")
+;    })
+;  (expect "Expect the new user to have 25 tokens left"
+;    25.0
+;    (free.academy-token.get-balance "new-user"))
+;  (continue-pact 1)
+;  (expect "Expect the new user to have 25 tokens left"
+;    25.0
+;    (free.academy-token.get-balance "new-user"))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+;  ; Test the retrieval cross chain safe transfer
+;  (env-keys ["user-public-key"])
+;  (env-hash (hash "cross chain safe transfer retrieval"))
+;  (begin-tx)
+;  (free.academy-token.safe-transfer-retrieve (hash "cross chain safe transfer"))
+;  (expect "Expect the new user to have 50 tokens left"
+;    50.0
+;    (free.academy-token.get-balance "new-user"))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+
+;  ;Test expiration of cross chain safe transfer
+;  (env-chain-data
+;    { "chain-id": "TestNet00/2"
+;    , "block-height": 20
+;    , "block-time": (time "2024-01-01T00:00:00Z")
+;    })
+;  (env-sigs [{
+;    "key": "other-user-public-key",
+;    "caps": [
+;      (free.academy-token.TRANSFER "other-user" "new-user" 25.0)
+;      (free.academy-token.DEBIT "other-user")
+;    ]
+;  }])
+;  (env-hash (hash "expired cross chain safe transfer"))
+;  (begin-tx)
+;  (free.academy-token.safe-transfer-crosschain "other-user" "new-user" "TestNet00/3" 25.0 600)
+;  (expect "Expect the other user to have 125 tokens left"
+;    125.0
+;    (free.academy-token.get-balance "other-user"))
+;  (env-chain-data
+;    { "chain-id": "TestNet00/3"
+;    , "block-height": 21
+;    , "block-time": (time "2024-01-01T00:01:00Z")
+;    })
+;  (expect "Expect the new user to have 50 tokens left"
+;    50.0
+;    (free.academy-token.get-balance "new-user"))
+;  (continue-pact 1)
+;  (expect "Expect the new user to have 50 tokens left"
+;    50.0
+;    (free.academy-token.get-balance "new-user"))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+;  ; Test the retrieval of expired safe crosschain transaction
+;  (env-chain-data
+;    { "chain-id": "TestNet00/3"
+;    , "block-height": 21
+;    , "block-time": (time "2024-02-01T00:00:00Z")
+;    })
+;  (env-hash (hash "expired cross chain safe transfer retrieval"))
+;  (begin-tx)
+;  (expect "Expect the new user to have 50 tokens left"
+;    50.0
+;    (free.academy-token.get-balance "new-user"))
+;  (expect "Expect the other use to have 150 tokens"
+;    150.0
+;    (free.academy-token.get-balance "other-user"))
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])
+
+;  (env-sigs [{
+;    "key": "user-public-key",
+;    "caps": [
+;      (free.academy-token.TRANSFER "new-user" "other-user" 25.0)
+;      (free.academy-token.DEBIT "new-user")
+;    ]
+;  }
+;  {
+;    "key": "other-user-public-key",
+;    "caps": []
+;  }])
+;  (begin-tx)
+;  (free.academy-token.direct-safe-transfer "new-user" "other-user" 10.0)
+;  (commit-tx)
+;  (env-data {})
+;  (env-sigs [])

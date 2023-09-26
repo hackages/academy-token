@@ -1,0 +1,25 @@
+(begin-tx)
+(load "calculator.pact")
+
+(expect "Should add 2 numbers"
+    4
+    (math-calculator.add 2 2))
+
+
+(expect "Should subtract 2 numbers"
+    0
+    (math-calculator.substract 2 2))    
+
+(expect "Should multiply 2 numbers"
+    4
+    (math-calculator.multiply 2 2))
+
+(expect "Should add multiple number"
+    6
+    (math-calculator.sum [1 2 3]))
+
+(expect "Should multiply multiple numbers"
+    2
+    (math-calculator.mult [1 2 3]))
+
+(commit-tx)
