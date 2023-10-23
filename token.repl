@@ -4,7 +4,7 @@
     "keys": [],
     "pred": "keys-all"
   },
-  "test-keyset": {
+  "ac-keyset": {
     "keys": [],
     "pred": "keys-all"
   }
@@ -12,7 +12,7 @@
 
 ; Setup namespace
 (begin-tx)
-(define-namespace "free" (read-keyset "test-keyset") (read-keyset "namespace-keyset"))
+(define-namespace 'free (read-keyset "namespace-keyset") (read-keyset "ac-keyset"))
 (commit-tx)
 
 (env-data {
@@ -29,7 +29,7 @@
   "caps": []
 }])
 
-; Load the pact contracts from root in oder to be able to make transactions
+;  ; Load the pact contracts from root in oder to be able to make transactions
 (begin-tx)
 (load "./fungible-v2.pact")
 (load "./fungible-xchain-v1.pact")
@@ -39,8 +39,8 @@
 (env-data {})
 
 ; Disabled due to lambda's not being verified: https://github.com/kadena-io/pact/issues/1065
-; (verify "free.academy-token")
-; (typecheck "free.academy-token")
+;  (verify "free.academy-token")
+;  (typecheck "free.academy-token")
 
 ; Init module
 (env-sigs [{
@@ -71,6 +71,11 @@
   "Expect the new user to have 42.0 tokens"
   42.0
   (at "balance" (free.academy-token.grant-tokens "new-user" (describe-keyset "free.new-user-keyset") 42.0)))
+
+(expect 
+  "The remaining tokens should be 99958.0" 
+  99958.0 
+  (at "balance" (free.academy-token.check-balance)))
 (commit-tx)
 
 ; Test granting another user some tokens
@@ -89,6 +94,11 @@
   "Expect the other user to have 42.0 tokens"
   42.0
   (at "balance" (free.academy-token.grant-tokens "other-user" (describe-keyset "free.other-user-keyset") 42.0)))
+
+(expect 
+  "Expect the remaining balance to be 99916.0" 
+  99916.0
+  (at "balance" (free.academy-token.check-balance)))
 (commit-tx)
 (env-data {})
 (env-sigs [])

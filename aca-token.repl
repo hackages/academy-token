@@ -1,0 +1,37 @@
+ 
+ (env-data {
+    "namespace-keyset": {
+        "keys": [],
+        "pred": "keys-all"
+    },
+    "test-keyset": {
+        "keys": [],
+        "pred": "keys-all"
+    }
+ })
+
+ ;; setup a namespace
+ (begin-tx "create a namespace and initialize the repl")
+
+ (define-namespace 'free (read-keyset "namespace-keyset") (read-keyset "test-keyset"))
+
+ (commit-tx)
+
+
+ (env-data {
+    "academy-token-keyset": {
+        "keys": ["academy-token-public-key"],
+        "pred": "keys-all"
+    }
+ })
+
+ (env-sigs [{
+    "key": "academy-token-public-key",
+    "caps": []
+ }])
+
+ (begin-tx)
+ (load "./fungible-v2.pact")
+ (load "./aca-token.pact")
+ (commit-tx)
+
